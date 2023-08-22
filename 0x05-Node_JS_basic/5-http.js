@@ -1,26 +1,68 @@
 const http = require('http');
-const students = require('./3-read_file_async');
-const hostname = '127.0.0.1';
+const fs = require('fs');
+
+const path = process.argv[2];
 const port = 1245;
 
+const countStudents = (path) => {
+  const promise = (res, rej) => {
+    fs.readFile(path, 'utf8', (err, resData) => {
+      if (!err) {
+        const printOut = [];
+        let printItem; // item to printed
+        const data = resData.toString().split('\n');
+        let students = data.filter((item) => item);
+        students = students.map((item) => item.split(','));
+        printItem = `Number of students: ${students.length - 1}`;
+        console.log(printItem);
+        printOut.push(printItem);
+
+        const fields = {};
+        for (const student in students) {
+          if (student !== 0) {
+            if (!fields[students[student][3]]) {
+              fields[students[student][3]] = [];
+            }
+            fields[students[student][3]].push(students[student][0]);
+          }
+        }
+        delete fields.field;
+        for (const key of Object.keys(fields)) {
+          printItem = `Number of students in ${key}: ${
+            fields[key].length}. List: ${fields[key].join(', ')}`;
+          console.log(printItem);
+          printOut.push(printItem);
+        }
+        res(printOut);
+      } else {
+        rej(new Error('Cannot load the database'));
+      }
+    });
+  };
+
+  return new Promise(promise);
+};
+
 const app = http.createServer((req, res) => {
-  res.statusCode = 200;
-  res.setHeader('Content-Type', 'text/plain');
   if (req.url === '/') {
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'text/plain');
     res.end('Hello Holberton School!');
-  } else if (req.url === '/students') {
-    res.write('This is the list of our students\n');
-    students(process.argv[2]).then((data) => {
-      res.write(`Number of students: ${data.students.length}\n`);
-      res.write(`Number of students in CS: ${data.csStudents.length}. List: ${data.csStudents.join(', ')}\n`);
-      res.write(`Number of students in SWE: ${data.sweStudents.length}. List: ${data.sweStudents.join(', ')}`);
-      res.end();
-    }).catch((err) => res.end(err.message));
+  }
+  if (req.url === '/students') {
+    res.statusCode = 200;
+    res.setHeader('Content-Type', 'text/plain');
+    countStudents(path)
+      .then((data) => {
+        res.end(`This is the list of our students\n${data.join('\n')}`);
+      })
+      .catch((error) => {
+        res.end(error);
+      });
   }
 });
-  
-app.listen(port, hostname, () => {
-  console.log(`Server running at http://${hostname}:${port}`);
+
+app.listen(port, () => {
 });
 
 module.exports = app;
